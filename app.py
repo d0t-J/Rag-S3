@@ -31,9 +31,10 @@ def get_huggingface_embeddings(text, model_name=embedding_model):
     model = SentenceTransformer(model_name)
     return model.encode(text)
 
-@app.route('/', methods=['POST', 'GET'])
+@app.route('/')
 def home():
     print("Routes: \n 1. /upload => to upload text from the pdf into pinecone \n 2. /rag to apply rag to the given text")
+    return "'app.py' successfully running"
 
 @app.route("/upload", methods=["POST"])
 def upload_translated_text():
