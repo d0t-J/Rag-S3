@@ -194,3 +194,9 @@ def perform_rag(query, pinecone_index, namespace):
         ],
     )
     return response.choices[0].message.content
+
+if __name__ == '__main__':
+    # Get the port from the environment variable or default to 5000
+    port = int(os.environ.get('PORT', 5000))
+    # Bind to '0.0.0.0' to ensure the server is accessible externally
+    app.run(host='0.0.0.0', port=port)
