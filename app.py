@@ -38,9 +38,6 @@ def home():
 
 @app.route("/upload", methods=["POST"])
 def upload_translated_text():
-    """
-    Endpoint to accept translated text and index it into Pinecone.
-    """
     try:
         # Parse the incoming JSON payload
         data = request.json
