@@ -59,6 +59,8 @@ jobs:
       - name: Unzip artifact for deployment
         run: unzip release.zip
 
+      - name: Stop any running deployment
+        run: az webapp stop --name 'ragS3' --resource-group 'OOP_S3'
       
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
@@ -67,3 +69,6 @@ jobs:
           app-name: 'ragS3'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_15C9279C4EB249F989E2C7FF9057AE58 }}
+      
+      - name: Start the web app
+        run: az webapp start --name 'ragS3' --resource-group 'OOP_S3'          
