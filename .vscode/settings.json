@@ -1,0 +1,4 @@
+{
+    "appService.defaultWebAppToDeploy": "undefined/subscriptions/974b11ce-b30b-4f2d-881e-b7c5c3415732/resourceGroups/appsvc_linux_centralus/providers/Microsoft.Web/sites/RAGS3",
+    "appService.deploySubpath": "."
+}
