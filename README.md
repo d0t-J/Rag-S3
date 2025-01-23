@@ -1,6 +1,6 @@
 # RAG Project
 
-This project implements a Retrieval-Augmented Generation (RAG) system using Pinecone, Groq, and HuggingFace embeddings. The system is designed to handle text embeddings, document processing, and query responses in the agriculture domain.
+This project implements a Retrieval-Augmented Generation (RAG) system using Pinecone, Groq, and HuggingFace embeddings. The system is designed to handle text embeddings, document processing, and query responses in the agriculture domain. This RAG script was coded for the project [OOP S3](https://github.com/OOP_S3.git)
 
 ## Table of Contents
 
