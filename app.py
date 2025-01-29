@@ -58,7 +58,7 @@ def upload_translated_text():
         chunked_text = split_text_into_documents([translated_text], file_name)
 
         # Process chunks into Pinecone document format
-        documents = process_text_embedding(chunked_text)
+        documents = process_text_embedding(chunked_text, file_name)
 
         # Initialize Pinecone index
         pinecone_index = initialize_pinecone_index(index_name)  # noqa: F841
