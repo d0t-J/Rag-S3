@@ -25,10 +25,10 @@ app = Flask(__name__)
 
 embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
 embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
-model = SentenceTransformer(model_name=embedding_model)
 
 
-def get_huggingface_embeddings(text):
+def get_huggingface_embeddings(text, model_name=embedding_model):
+    model = SentenceTransformer(model_name)
     return model.encode(text)
 
 
@@ -92,6 +92,10 @@ def handle_rag_request():
     namespace = data.get("namespace")
 
     pinecone_index = initialize_pinecone_index(index_name)
+    if not is_query_relevant(query, pinecone_index, namespace):
+        return jsonify(
+            {"error": "Your query does not seem related to the uploaded document."}
+        ), 400
     response = perform_rag(query, pinecone_index, namespace)
 
     return jsonify({"response": response})
@@ -139,6 +143,32 @@ def split_text_into_documents(texts, file_name, chunk_size=1024, chunk_overlap=1
 
 def initialize_pinecone_index(index_name):
     return pinecone_client.Index(index_name)
+
+
+def is_query_relevant(query, pinecone_index, namespace, threshold=0.5):
+    raw_query_embeddings = get_huggingface_embeddings(query)
+    query_embeddings = np.array(raw_query_embeddings).reshape(1, -1)
+
+    top_matches = pinecone_index.query(
+        vector=query_embeddings.tolist(),
+        top_k=5,
+        include_metadata=True,
+        namespace=namespace,
+    )
+
+    if not top_matches["matches"]:
+        return False
+
+    top_texts = [item["metadata"]["text"] for item in top_matches["matches"]]
+
+    similarities = [
+        cosine_similarity(
+            query_embeddings, get_huggingface_embeddings(text).reshape(1, -1)
+        )[0][0]
+        for text in top_texts
+    ]
+
+    return max(similarities) > threshold
 
 
 def perform_rag(query, pinecone_index, namespace):
