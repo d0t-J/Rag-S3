@@ -55,7 +55,7 @@ def upload_translated_text():
             return jsonify({"error": "Translated text and file_name is required."}), 400
 
         # Split text into chunks
-        chunked_text = split_text_into_documents([translated_text])
+        chunked_text = split_text_into_documents([translated_text], file_name)
 
         # Process chunks into Pinecone document format
         documents = process_text_embedding(chunked_text)
@@ -106,24 +106,19 @@ def cosine_similarity_between_sentences(sentence1, sentence2):
     return similarity[0][0]
 
 
-def process_text_embedding(texts):
+def process_text_embedding(texts, file_name):
     document_data = []
     for i, text in enumerate(texts):
-        document_source = f"text {i + 1}"
-
-        # Create a Document object with structured content and metadata
         doc = Document(
-            page_content=f"<Source>\n{document_source}\n</Source>\n\n<Content>\n{text}\n</Content>",
-            metadata={
-                "file_name": document_source,
-            },
+            page_content=text,
+            metadata={"file_name": file_name, "chunk_id": i},
         )
         document_data.append(doc)
     return document_data
 
 
 #! Use this snippet if you want the each string in text[] to be treated as a separate document
-def split_text_into_documents(texts, chunk_size=2000, chunk_overlap=100):
+def split_text_into_documents(texts, file_name, chunk_size=1024, chunk_overlap=100):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -132,7 +127,13 @@ def split_text_into_documents(texts, chunk_size=2000, chunk_overlap=100):
     documents = []
     for text in texts:
         chunks = text_splitter.split_text(text)
-        documents.extend([Document(page_content=chunk) for chunk in chunks])
+        for i, chunk in enumerate(chunks):
+            documents.append(
+                Document(
+                    page_content=chunk,
+                    metadata={"file_name": file_name, "chunk_id": i},
+                )
+            )
     return documents
 
 
@@ -145,7 +146,7 @@ def perform_rag(query, pinecone_index, namespace):
     query_embeddings = np.array(raw_query_embeddings)
     top_matches = pinecone_index.query(
         vector=query_embeddings.tolist(),
-        top_k=10,
+        top_k=5,
         include_metadata=True,
         namespace=namespace,
     )
