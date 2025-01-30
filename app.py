@@ -25,17 +25,17 @@ app = Flask(__name__)
 
 embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
 embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
-model = SentenceTransformer(model_name=embedding_model)
 
 
 def get_huggingface_embeddings(text):
+    model = SentenceTransformer(model_name=embedding_model)
     return model.encode(text)
 
 
 @app.route("/")
 def home():
     print(
-        "Routes: \n 1. /upload => to upload text from the pdf into pinecone \n 2. /rag to apply rag to the given text"
+        "Routes: \n 1. /upload => to upload text from the pdf into pinecone \n 2. /rag => to apply rag to the given text"
     )
     return "'app.py' successfully running"
 
