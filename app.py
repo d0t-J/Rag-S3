@@ -25,10 +25,10 @@ app = Flask(__name__)
 
 embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
 embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
+model = SentenceTransformer(model_name=embedding_model)
 
 
-def get_huggingface_embeddings(text, model_name=embedding_model):
-    model = SentenceTransformer(model_name)
+def get_huggingface_embeddings(text):
     return model.encode(text)
 
 
@@ -55,10 +55,10 @@ def upload_translated_text():
             return jsonify({"error": "Translated text and file_name is required."}), 400
 
         # Split text into chunks
-        chunked_text = split_text_into_documents([translated_text], file_name)
+        chunked_text = split_text_into_documents([translated_text])
 
         # Process chunks into Pinecone document format
-        documents = process_text_embedding(chunked_text, file_name)
+        documents = process_text_embedding(chunked_text)
 
         # Initialize Pinecone index
         pinecone_index = initialize_pinecone_index(index_name)  # noqa: F841
@@ -92,10 +92,6 @@ def handle_rag_request():
     namespace = data.get("namespace")
 
     pinecone_index = initialize_pinecone_index(index_name)
-    if not is_query_relevant(query, pinecone_index, namespace):
-        return jsonify(
-            {"error": "Your query does not seem related to the uploaded document."}
-        ), 400
     response = perform_rag(query, pinecone_index, namespace)
 
     return jsonify({"response": response})
@@ -110,19 +106,22 @@ def cosine_similarity_between_sentences(sentence1, sentence2):
     return similarity[0][0]
 
 
-def process_text_embedding(texts, file_name):
+def process_text_embedding(texts):
     document_data = []
     for i, text in enumerate(texts):
+        document_source = f"text {i + 1}"
         doc = Document(
-            page_content=text,
-            metadata={"file_name": file_name, "chunk_id": i},
+            page_content=f"<Source>\n{document_source}\n</Source>\n\n<Content>\n{text}\n</Content>",
+            metadata={
+                "file_name": document_source,
+            },
         )
         document_data.append(doc)
     return document_data
 
 
 #! Use this snippet if you want the each string in text[] to be treated as a separate document
-def split_text_into_documents(texts, file_name, chunk_size=1024, chunk_overlap=100):
+def split_text_into_documents(texts, chunk_size=2000, chunk_overlap=100):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -131,13 +130,7 @@ def split_text_into_documents(texts, file_name, chunk_size=1024, chunk_overlap=1
     documents = []
     for text in texts:
         chunks = text_splitter.split_text(text)
-        for i, chunk in enumerate(chunks):
-            documents.append(
-                Document(
-                    page_content=chunk,
-                    metadata={"file_name": file_name, "chunk_id": i},
-                )
-            )
+        documents.extend([Document(page_content=chunk) for chunk in chunks])
     return documents
 
 
@@ -145,38 +138,12 @@ def initialize_pinecone_index(index_name):
     return pinecone_client.Index(index_name)
 
 
-def is_query_relevant(query, pinecone_index, namespace, threshold=0.5):
-    raw_query_embeddings = get_huggingface_embeddings(query)
-    query_embeddings = np.array(raw_query_embeddings).reshape(1, -1)
-
-    top_matches = pinecone_index.query(
-        vector=query_embeddings.tolist(),
-        top_k=5,
-        include_metadata=True,
-        namespace=namespace,
-    )
-
-    if not top_matches["matches"]:
-        return False
-
-    top_texts = [item["metadata"]["text"] for item in top_matches["matches"]]
-
-    similarities = [
-        cosine_similarity(
-            query_embeddings, get_huggingface_embeddings(text).reshape(1, -1)
-        )[0][0]
-        for text in top_texts
-    ]
-
-    return max(similarities) > threshold
-
-
 def perform_rag(query, pinecone_index, namespace):
     raw_query_embeddings = get_huggingface_embeddings(query)
     query_embeddings = np.array(raw_query_embeddings)
     top_matches = pinecone_index.query(
         vector=query_embeddings.tolist(),
-        top_k=5,
+        top_k=10,
         include_metadata=True,
         namespace=namespace,
     )
@@ -189,11 +156,7 @@ def perform_rag(query, pinecone_index, namespace):
     )
 
     # Define system prompt
-    system_prompt = (
-        "You are an AI assistant with expertise in the agriculture domain. Your role is to generate detailed, contextually relevant, and accurate responses based strictly on the provided context and query."
-        "\n\nStrictly adhere to the context and only respond based on the information provided."
-        "\nDon't answer if the query is irrelevant to the context or out of scope."
-    )
+    system_prompt = "You are an AI assistant with expertise in the agriculture domain. Your role is to generate precise, contextually relevant, and fact-based responses strictly based on the provided agricultural context and query.\n\nStrictly adhere to the agricultural domain. Only respond if both the context and query are explicitly related to agriculture. \nDecline to answer any query that is off-topic or unrelated to agriculture, without providing any hints, redirections, or additional information beyond the domain.\nIf a query is outside the agricultural domain, simply respond: 'I can only assist with agriculture-related inquiries.' and provide no further elaboration."
     # Query Groq LLM
     response = groq_client.chat.completions.create(
         model="llama-3.3-70b-versatile",
